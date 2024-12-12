@@ -463,7 +463,7 @@ class MatrixFactorization:
       epoch += 1
 
     if self._log:
-      logger.info("Num epochs: {epoch}")
+      logger.info(f"Num epochs: {epoch}")
     return self._compute_and_print_loss(loss.item(), epoch, final=True)
 
   def prepare_features_and_labels(
