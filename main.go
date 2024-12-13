@@ -4,155 +4,178 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"math/rand"
 	"os"
+	"sort"
 	"strings"
 )
 
 var sampleSize int
 
 func check(err error) {
-    if err != nil {
-        panic(err)
-    }
+	if err != nil {
+		panic(err)
+	}
 }
 
 func readHeader(reader *bufio.Reader) string {
-    header, err := reader.ReadString('\n')
-    check(err)
-    return strings.TrimSpace(header)
+	header, err := reader.ReadString('\n')
+	check(err)
+	return strings.TrimSpace(header)
 }
 
 func sampleNotes(inputPath, outputPath string, checkFunc func([]string) bool) map[string]bool {
-    // Open notes file
-    notesFile, err := os.Open(inputPath)
-    check(err)
-    defer notesFile.Close()
+	// Open notes file
+	notesFile, err := os.Open(inputPath)
+	check(err)
+	defer notesFile.Close()
 
-    reader := bufio.NewReader(notesFile)
-    header := readHeader(reader)
+	// First, count ratings per note
+	ratingCounts := make(map[string]int)
 
-    // Write sampled notes
-    outFile, err := os.Create(outputPath)
-    check(err)
-    defer outFile.Close()
-    writer := bufio.NewWriter(outFile)
-    defer writer.Flush()
+	// Count ratings across all rating files
+	for i := 0; i < 16; i++ {
+		ratingsPath := fmt.Sprintf("input/ratings/ratings-%05d.tsv", i)
+		ratingsFile, err := os.Open(ratingsPath)
+		check(err)
 
-    // Write header
-    fmt.Fprintln(writer, header)
+		reader := bufio.NewReader(ratingsFile)
+		readHeader(reader) // Skip header
 
-    // Read all noteIds first
-    var noteIds []string
-    for {
-        line, err := reader.ReadString('\n')
-        if err != nil {
-            break
-        }
-        fields := strings.Split(strings.TrimSpace(line), "\t")
-        noteIds = append(noteIds, fields[0])
-    }
+		// Count ratings for each note
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				break
+			}
+			fields := strings.Split(strings.TrimSpace(line), "\t")
+			noteId := fields[0]
+			ratingCounts[noteId]++
+		}
 
-    // Randomly sample noteIds
-    selectedNotes := make(map[string]bool)
-    for i := 0; i < sampleSize && i < len(noteIds); i++ {
-        idx := rand.Intn(len(noteIds))
-        selectedNotes[noteIds[idx]] = true
-        noteIds = append(noteIds[:idx], noteIds[idx+1:]...)
-    }
+		ratingsFile.Close()
+	}
 
-    // Reopen file to read full records
-    notesFile.Seek(0, 0)
-    reader = bufio.NewReader(notesFile)
-    readHeader(reader) // Skip header
+	// Create a slice of note IDs sorted by rating count
+	type noteCount struct {
+		noteId string
+		count  int
+	}
+	var sortedNotes []noteCount
+	for noteId, count := range ratingCounts {
+		sortedNotes = append(sortedNotes, noteCount{noteId, count})
+	}
 
-    // Write selected records
-    for {
-        line, err := reader.ReadString('\n')
-        if err != nil {
-            break
-        }
-        fields := strings.Split(strings.TrimSpace(line), "\t")
-        if selectedNotes[fields[0]] {
-            checkFunc(fields)
-            fmt.Fprint(writer, line)
-        }
-    }
+	// Sort by count in descending order
+	sort.Slice(sortedNotes, func(i, j int) bool {
+		return sortedNotes[i].count > sortedNotes[j].count
+	})
 
-    return selectedNotes
+	// Select top N notes
+	selectedNotes := make(map[string]bool)
+	for i := 0; i < sampleSize && i < len(sortedNotes); i++ {
+		selectedNotes[sortedNotes[i].noteId] = true
+	}
+
+	// Write selected notes to output file
+	reader := bufio.NewReader(notesFile)
+	header := readHeader(reader)
+
+	outFile, err := os.Create(outputPath)
+	check(err)
+	defer outFile.Close()
+	writer := bufio.NewWriter(outFile)
+	defer writer.Flush()
+
+	// Write header
+	fmt.Fprintln(writer, header)
+
+	// Read all noteIds first
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			break
+		}
+		fields := strings.Split(strings.TrimSpace(line), "\t")
+		if selectedNotes[fields[0]] {
+			checkFunc(fields)
+			fmt.Fprint(writer, line)
+		}
+	}
+
+	return selectedNotes
 }
 
 func filterFile(inputPath, outputPath string, checkFunc func([]string) bool) {
-    inFile, err := os.Open(inputPath)
-    check(err)
-    defer inFile.Close()
+	inFile, err := os.Open(inputPath)
+	check(err)
+	defer inFile.Close()
 
-    outFile, err := os.Create(outputPath)
-    check(err)
-    defer outFile.Close()
+	outFile, err := os.Create(outputPath)
+	check(err)
+	defer outFile.Close()
 
-    reader := bufio.NewReader(inFile)
-    writer := bufio.NewWriter(outFile)
-    defer writer.Flush()
+	reader := bufio.NewReader(inFile)
+	writer := bufio.NewWriter(outFile)
+	defer writer.Flush()
 
-    // Copy header
-    header := readHeader(reader)
-    fmt.Fprintln(writer, header)
+	// Copy header
+	header := readHeader(reader)
+	fmt.Fprintln(writer, header)
 
-    // Filter records
-    for {
-        line, err := reader.ReadString('\n')
-        if err != nil {
-            break
-        }
-        fields := strings.Split(strings.TrimSpace(line), "\t")
-        if checkFunc(fields) {
-            fmt.Fprint(writer, line)
-        }
-    }
+	// Filter records
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			break
+		}
+		fields := strings.Split(strings.TrimSpace(line), "\t")
+		if checkFunc(fields) {
+			fmt.Fprint(writer, line)
+		}
+	}
 }
 
 func main() {
-    // Add flag parsing at start of main
-    flag.IntVar(&sampleSize, "sample", 1000, "number of notes to sample")
-    flag.Parse()
-    
-    // create output directories
-    os.MkdirAll("input-sample/ratings", 0755)
-    
-    // Track participating users
-    participants := make(map[string]bool)
+	// Add flag parsing at start of main
+	flag.IntVar(&sampleSize, "sample", 1000, "number of notes to sample")
+	flag.Parse()
 
-    selectedNotes := sampleNotes("input/notes-00000.tsv", "input-sample/notes-00000.tsv", func(fields []string) bool {
-        participants[fields[1]] = true
-        return true
-    })
-    
-    // Filter ratings
-    // First declare the function variable
-    var filterRatings = func(fields []string) bool {
-        if selectedNotes[fields[0]] {
-            participants[fields[1]] = true
-            return true
-        }
-        return false
-    }
-    
-    for i := 0; i < 16; i++ {
-        inputPath := fmt.Sprintf("input/ratings/ratings-%05d.tsv", i)
-        outputPath := fmt.Sprintf("input-sample/ratings/ratings-%05d.tsv", i)
-        filterFile(inputPath, outputPath, filterRatings)
-    }
+	// create output directories
+	os.MkdirAll("input-sample/ratings", 0755)
 
-    // Filter noteStatusHistory
-    filterFile("input/noteStatusHistory-00000.tsv", "input-sample/noteStatusHistory-00000.tsv", func(fields []string) bool {
-        return selectedNotes[fields[0]]
-    })
+	// Track participating users
+	participants := make(map[string]bool)
 
-    // Filter userEnrollment (only keep participants from ratings)
-    filterFile("input/userEnrollment-00000.tsv", "input-sample/userEnrollment-00000.tsv", func(fields []string) bool {
-        return participants[fields[0]]
-    })
+	selectedNotes := sampleNotes("input/notes-00000.tsv", "input-sample/notes-00000.tsv", func(fields []string) bool {
+		participants[fields[1]] = true
+		return true
+	})
+
+	// Filter ratings
+	// First declare the function variable
+	var filterRatings = func(fields []string) bool {
+		if selectedNotes[fields[0]] {
+			participants[fields[1]] = true
+			return true
+		}
+		return false
+	}
+
+	for i := 0; i < 16; i++ {
+		inputPath := fmt.Sprintf("input/ratings/ratings-%05d.tsv", i)
+		outputPath := fmt.Sprintf("input-sample/ratings/ratings-%05d.tsv", i)
+		filterFile(inputPath, outputPath, filterRatings)
+	}
+
+	// Filter noteStatusHistory
+	filterFile("input/noteStatusHistory-00000.tsv", "input-sample/noteStatusHistory-00000.tsv", func(fields []string) bool {
+		return selectedNotes[fields[0]]
+	})
+
+	// Filter userEnrollment (only keep participants from ratings)
+	filterFile("input/userEnrollment-00000.tsv", "input-sample/userEnrollment-00000.tsv", func(fields []string) bool {
+		return participants[fields[0]]
+	})
 }
 
 // go run main.go -sample 10000
