@@ -23,7 +23,7 @@ func readHeader(reader *bufio.Reader) string {
     return strings.TrimSpace(header)
 }
 
-func sampleNotes(inputPath, outputPath string) map[string]bool {
+func sampleNotes(inputPath, outputPath string, checkFunc func([]string) bool) map[string]bool {
     // Open notes file
     notesFile, err := os.Open(inputPath)
     check(err)
@@ -74,6 +74,7 @@ func sampleNotes(inputPath, outputPath string) map[string]bool {
         }
         fields := strings.Split(strings.TrimSpace(line), "\t")
         if selectedNotes[fields[0]] {
+            checkFunc(fields)
             fmt.Fprint(writer, line)
         }
     }
@@ -119,11 +120,14 @@ func main() {
     // create output directories
     os.MkdirAll("input-sample/ratings", 0755)
     
-    selectedNotes := sampleNotes("input/notes-00000.tsv", "input-sample/notes-00000.tsv")
-    
     // Track participating users
     participants := make(map[string]bool)
 
+    selectedNotes := sampleNotes("input/notes-00000.tsv", "input-sample/notes-00000.tsv", func(fields []string) bool {
+        participants[fields[1]] = true
+        return true
+    })
+    
     // Filter ratings
     // First declare the function variable
     var filterRatings = func(fields []string) bool {
