@@ -137,7 +137,9 @@ func filterFile(inputPath, outputPath string, checkFunc func([]string) bool) {
 
 func main() {
 	// Add flag parsing at start of main
+	var userSampleSize int
 	flag.IntVar(&sampleSize, "sample", 1000, "number of notes to sample")
+	flag.IntVar(&userSampleSize, "users", 1000, "number of top users to include")
 	flag.Parse()
 
 	// create output directories
@@ -151,16 +153,63 @@ func main() {
 		return true
 	})
 
+	// Count ratings per user for selected notes
+	userRatingCounts := make(map[string]int)
+
+	// First pass: count ratings per user
+	for i := 0; i < 16; i++ {
+		inputPath := fmt.Sprintf("input/ratings/ratings-%05d.tsv", i)
+		file, err := os.Open(inputPath)
+		check(err)
+
+		reader := bufio.NewReader(file)
+		readHeader(reader)
+
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				break
+			}
+			fields := strings.Split(strings.TrimSpace(line), "\t")
+			if selectedNotes[fields[0]] {
+				userId := fields[1]
+				userRatingCounts[userId]++
+			}
+		}
+		file.Close()
+	}
+
+	// Select top N users
+	type userCount struct {
+		userId string
+		count  int
+	}
+	var sortedUsers []userCount
+	for userId, count := range userRatingCounts {
+		sortedUsers = append(sortedUsers, userCount{userId, count})
+	}
+
+	sort.Slice(sortedUsers, func(i, j int) bool {
+		return sortedUsers[i].count > sortedUsers[j].count
+	})
+
+	// Create map of selected users
+	selectedUsers := make(map[string]bool)
+	for i := 0; i < userSampleSize && i < len(sortedUsers); i++ {
+		selectedUsers[sortedUsers[i].userId] = true
+	}
+
 	// Filter ratings
 	// First declare the function variable
 	var filterRatings = func(fields []string) bool {
-		if selectedNotes[fields[0]] {
+		if selectedNotes[fields[0]] && selectedUsers[fields[1]] {
 			participants[fields[1]] = true
 			return true
 		}
 		return false
 	}
 
+	// Second pass: write filtered ratings
 	for i := 0; i < 16; i++ {
 		inputPath := fmt.Sprintf("input/ratings/ratings-%05d.tsv", i)
 		outputPath := fmt.Sprintf("input-sample/ratings/ratings-%05d.tsv", i)
@@ -174,8 +223,8 @@ func main() {
 
 	// Filter userEnrollment (only keep participants from ratings)
 	filterFile("input/userEnrollment-00000.tsv", "input-sample/userEnrollment-00000.tsv", func(fields []string) bool {
-		return participants[fields[0]]
+		return selectedUsers[fields[0]]
 	})
 }
 
-// go run main.go -sample 10000
+// go run main.go -sample 10000 -users 1000
