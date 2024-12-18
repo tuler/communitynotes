@@ -185,7 +185,7 @@ class TopicModel(object):
             CountVectorizer(
               strip_accents="unicode",
               stop_words=stopWords,
-              min_df=25,
+              min_df=1,
               max_df=max(1000, int(0.25 * len(postText))),
             ),
           ),
