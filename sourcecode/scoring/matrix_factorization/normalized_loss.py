@@ -105,7 +105,7 @@ class NormalizedLoss(torch.nn.Module):
     self.targets = targets
     # Validate that ratings is ordered correctly and preserve order
     assert len(ratings) == len(targets)
-    assert all(ratings[labelCol].values == targets.numpy())
+    assert all(ratings[labelCol].values == targets.cpu().numpy())
     ratingOrder = ratings[[c.raterParticipantIdKey, c.noteIdKey]].copy()
     # Assign factors if applicable
     if raterFactors is not None:
@@ -138,4 +138,13 @@ class NormalizedLoss(torch.nn.Module):
     assert len(self.weights) == len(self.targets)
 
   def forward(self, pred):
-    return (self.weights * self.loss_fn(pred, self.targets)).mean()
+    # Get device from prediction tensor
+    device = pred.device
+    
+    # Move weights and targets to same device
+    weights = self.weights.to(device)
+    targets = self.targets.to(device)
+    
+    # Calculate loss with tensors on same device
+    return (weights * self.loss_fn(pred, targets)).mean()
+    #return (self.weights * self.loss_fn(pred, self.targets)).mean()
