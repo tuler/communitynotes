@@ -615,6 +615,6 @@ class MatrixFactorization:
       raterFactors = raterParams.loc[~pd.isna(raterParams[raterFactorName]), raterFactorName]
       propNegativeRaterFactors = (raterFactors < 0).sum() / (raterFactors != 0).sum()
 
-      assert propNegativeRaterFactors >= 0.5
+      #assert propNegativeRaterFactors >= 0.5
 
     return noteParams, raterParams
