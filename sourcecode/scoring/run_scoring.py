@@ -1071,9 +1071,9 @@ def run_prescoring(
   c.PrescoringMetaOutput,
   pd.DataFrame,
 ]:
-  logger.info("logging environment variables")
-  for k, v in os.environ.items():
-    print(f"{k}: {v}")
+#  logger.info("logging environment variables")
+#  for k, v in os.environ.items():
+#    print(f"{k}: {v}")
   with c.time_block("Logging Prescoring Inputs Initial RAM usage"):
     logger.info(get_df_info(notes, "notes"))
     logger.info(get_df_info(ratings, "ratings"))
