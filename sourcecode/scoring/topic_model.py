@@ -52,6 +52,10 @@ class TopicModel(object):
         "messi\s",  # intentional whitespace to prevent prefix matches
         "ronaldo",
       },
+      Topics.Test: {
+        "florida",
+        "texas",
+      },
     }
     self._unassignedThreshold = unassignedThreshold
     self._compiled_regex = self._compile_regex()

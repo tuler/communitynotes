@@ -23,6 +23,7 @@ class Topics(Enum):
   UkraineConflict = 1
   GazaConflict = 2
   MessiRonaldo = 3
+  Test = 4
 
 
 def scorers_from_csv(csv: str) -> Set[Scorers]:
