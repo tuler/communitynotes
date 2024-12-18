@@ -188,6 +188,7 @@ def _run_scorer(
       args.status,
       args.enrollment,
       args.headers,
+      False,
     )
   notes, ratings, statusHistory, userEnrollment = dataLoader.get_data()
   if args.previous_scored_notes is not None:
