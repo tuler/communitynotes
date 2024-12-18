@@ -26,8 +26,8 @@ class ReputationScorer(Scorer):
     self,
     seed: Optional[int] = None,
     threads: int = c.defaultNumThreads,
-    minNumRatingsPerRater: int = 10,
-    minNumRatersPerNote: int = 5,
+    minNumRatingsPerRater: int = 1,
+    minNumRatersPerNote: int = 1,
     crhThreshold: float = 0.28,
     useStableInitialization: bool = True,
   ):
