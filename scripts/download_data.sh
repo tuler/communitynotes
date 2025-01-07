@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 DATE=2025/01/07
 BASE_URL=https://ton.twimg.com/birdwatch-public-data
