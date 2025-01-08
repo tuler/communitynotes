@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DATE=2025/01/07
+DATE=2025/01/06
 BASE_URL=https://ton.twimg.com/birdwatch-public-data
 
 mkdir -p input/ratings
